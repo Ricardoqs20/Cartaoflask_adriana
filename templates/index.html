@@ -96,7 +96,8 @@
                 <span>Website</span>
             </a>
             <div class="vertical-divider"></div>
-            <a href="#" class="action-item">
+            <!-- Botão de Compartilhar corrigido para chamar a função JavaScript -->
+            <a href="javascript:void(0);" onclick="compartilharSite()" class="action-item">
                 <i class="fa-solid fa-share-nodes icon"></i>
                 <span>Compartilhar</span>
             </a>
@@ -104,6 +105,52 @@
     </div>
 
     <script>
+        // Função de Compartilhamento Robusta
+        function compartilharSite() {
+            const urlAtual = window.location.href;
+            const shareData = {
+                title: 'Cartão Digital - Adriana Lobão',
+                text: 'Confira o meu cartão de visitas digital!',
+                url: urlAtual
+            };
+
+            if (navigator.share) {
+                navigator.share(shareData).catch((error) => {
+                    console.log('Erro no share nativo:', error);
+                    copiarFallback(urlAtual);
+                });
+            } else {
+                copiarFallback(urlAtual);
+            }
+        }
+
+        function copiarFallback(texto) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(texto).then(() => {
+                    alert('Link copiado para a área de transferência!');
+                }).catch(() => {
+                    forcarCopiaManual(texto);
+                });
+            } else {
+                forcarCopiaManual(texto);
+            }
+        }
+
+        function forcarCopiaManual(texto) {
+            const input = document.createElement('input');
+            input.value = texto;
+            document.body.appendChild(input);
+            input.select();
+            try {
+                document.execCommand('copy');
+                alert('Link copiado com sucesso!');
+            } catch (err) {
+                prompt("Copie o link abaixo:", texto);
+            }
+            document.body.removeChild(input);
+        }
+
+        // Script do Carrossel de Imóveis
         const scrollContainer = document.getElementById('propertyScroll');
         const dotsContainer = document.getElementById('carouselDots');
         
