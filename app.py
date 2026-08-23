@@ -32,7 +32,7 @@ with app.app_context():
 @app.route("/")
 def index():
     imoveis = Imovel.query.order_by(Imovel.preco_num.desc()).all()
-    perfil = {"nome": "Conceição Queiroz", "corretora": "RE/MAX DREAMS", "subtitulo": "Conduzo decisões imobiliárias.", "foto": "corretora.png"}
+    perfil = {"nome": "Adriana Lobão", "corretora": "RE/MAX DREAMS", "subtitulo": "O seu estilo de vida merece um imóvel à altura.", "foto": "corretora.png"}
     return render_template("index.html", perfil=perfil, imoveis=imoveis)
 
 @app.route("/admin/login", methods=["GET", "POST"])
@@ -40,7 +40,7 @@ def admin_login():
     erro = None
     if request.method == "POST":
         senha = request.form.get("senha")
-        if senha == "cq310584":
+        if senha == "adminadmin":
             session['admin_logado'] = True
             return redirect(url_for("admin_painel"))
         else:
