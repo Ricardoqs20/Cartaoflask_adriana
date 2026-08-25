@@ -12,14 +12,23 @@
         h2 { color: #5c181b; margin-top: 0; text-align: center; font-size: 22px; }
         .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
         label { font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #333; }
-        input { padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; width: 100%; }
+        input, textarea { padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; width: 100%; font-family: inherit; background: white; }
+        
+        .radio-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .radio-option { flex: 1; text-align: center; }
+        .radio-option input { display: none; }
+        .radio-option label { display: block; padding: 12px; border: 2px solid #ccc; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; color: #555; transition: 0.2s; }
+        .radio-option input:checked + label { border-color: #5c181b; background: #5c181b; color: white; }
+
         .crop-container { display: none; width: 100%; background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
         .crop-wrapper { width: 100%; max-height: 400px; overflow: hidden; margin-bottom: 15px; border-radius: 8px; }
         #image-to-crop { max-width: 100%; display: block; }
+        
         button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: 0.2s; }
         .btn-salvar { background: #5c181b; color: white; margin-top: 10px; }
         .btn-confirmar { background: #222; color: #fff; text-transform: uppercase; letter-spacing: 1px; font-size: 13px; }
         .btn-voltar { display: block; text-align: center; margin-top: 20px; color: #5c181b; text-decoration: none; font-size: 14px; font-weight: 500; }
+        .help-text { font-size: 11px; color: #666; margin-top: 2px; }
     </style>
 </head>
 <body>
@@ -27,8 +36,34 @@
         <h2>Novo Imóvel</h2>
         <form id="form-adicionar" method="POST" enctype="multipart/form-data">
             
+            <label>Tipo de Cadastro:</label>
+            <div class="radio-group">
+                <div class="radio-option">
+                    <input type="radio" id="tipo_completo" name="tipo_cadastro" value="completo" checked onchange="alternarTipoCadastro()">
+                    <label for="tipo_completo">Cadastrar Imóvel</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="tipo_link" name="tipo_cadastro" value="link" onchange="alternarTipoCadastro()">
+                    <label for="tipo_link">Link Existente</label>
+                </div>
+            </div>
+
+            <!-- NOVO CAMPO: FINALIDADE (VENDA / ALUGUEL) -->
+            <label>Finalidade:</label>
+            <div class="radio-group">
+                <div class="radio-option">
+                    <input type="radio" id="negocio_venda" name="negocio" value="venda" checked>
+                    <label for="negocio_venda">Venda</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="negocio_aluguel" name="negocio" value="aluguel">
+                    <label for="negocio_aluguel">Aluguel</label>
+                </div>
+            </div>
+
+            <!-- FOTO DE CAPA -->
             <div class="form-group">
-                <label>Foto do Imóvel:</label>
+                <label>Foto de Capa:</label>
                 <input type="file" id="input_foto" accept="image/*" required onchange="iniciarCropperAdd(event)">
             </div>
 
@@ -36,9 +71,10 @@
                 <div class="crop-wrapper">
                     <img id="image-to-crop" src="">
                 </div>
-                <button type="button" id="btn-confirmar-corte" class="btn-confirmar">Cortar Imagem</button>
+                <button type="button" id="btn-confirmar-corte" class="btn-confirmar">Cortar Capa</button>
             </div>
 
+            <!-- CAMPOS BÁSICOS -->
             <div class="form-group">
                 <label>Título:</label>
                 <input type="text" name="titulo" required>
@@ -53,13 +89,30 @@
                 <label>Localização:</label>
                 <input type="text" name="localizacao" required>
             </div>
-            
-            <div class="form-group">
-                <label>Link:</label>
-                <input type="text" name="link" required>
+
+            <!-- TIPO: CADASTRO COMPLETO -->
+            <div id="secao-completo">
+                <div class="form-group">
+                    <label>Fotos Adicionais (Galeria):</label>
+                    <input type="file" id="input_galeria" name="fotos_galeria" accept="image/*" multiple required>
+                    <span class="help-text">Você pode selecionar várias fotos de uma vez.</span>
+                </div>
+
+                <div class="form-group">
+                    <label>Descrição do Imóvel:</label>
+                    <textarea id="input_descricao" name="descricao" rows="4" placeholder="Detalhes do imóvel..." required></textarea>
+                </div>
             </div>
 
-            <button type="submit" class="btn-salvar">Cadastrar Imóvel</button>
+            <!-- TIPO: LINK EXISTENTE -->
+            <div id="secao-link" style="display: none;">
+                <div class="form-group">
+                    <label>Link Externo do Imóvel:</label>
+                    <input type="text" id="input_link_externo" name="link" placeholder="Ex: https://remax.com.br/imovel">
+                </div>
+            </div>
+
+            <button type="submit" class="btn-salvar">Salvar Imóvel</button>
         </form>
         <a href="/admin" class="btn-voltar">← Voltar para o painel</a>
     </div>
@@ -68,6 +121,32 @@
     <script>
         let cropper;
         let imagemCortadaBlob = null;
+
+        function alternarTipoCadastro() {
+            const isCompleto = document.getElementById('tipo_completo').checked;
+            const secaoCompleto = document.getElementById('secao-completo');
+            const secaoLink = document.getElementById('secao-link');
+            
+            const inputLink = document.getElementById('input_link_externo');
+            const inputGaleria = document.getElementById('input_galeria');
+            const inputDescricao = document.getElementById('input_descricao');
+
+            if (isCompleto) {
+                secaoCompleto.style.display = 'block';
+                secaoLink.style.display = 'none';
+                
+                inputLink.removeAttribute('required');
+                inputGaleria.setAttribute('required', 'required');
+                inputDescricao.setAttribute('required', 'required');
+            } else {
+                secaoCompleto.style.display = 'none';
+                secaoLink.style.display = 'block';
+                
+                inputLink.setAttribute('required', 'required');
+                inputGaleria.removeAttribute('required');
+                inputDescricao.removeAttribute('required');
+            }
+        }
 
         function mascaraMoeda(input) {
             let valor = input.value.replace(/\D/g, '');
@@ -119,14 +198,24 @@
 
         document.getElementById('form-adicionar').addEventListener('submit', function(e) {
             e.preventDefault();
+
             if (!imagemCortadaBlob) {
-                alert('Por favor, selecione e corte a imagem do imóvel.');
+                alert('Por favor, selecione e corte a foto de capa do imóvel.');
                 return;
+            }
+
+            const isCompleto = document.getElementById('tipo_completo').checked;
+            if (isCompleto) {
+                const galeriaInput = document.getElementById('input_galeria');
+                if (!galeriaInput.files || galeriaInput.files.length === 0) {
+                    alert('Por favor, selecione ao menos uma foto para a galeria.');
+                    return;
+                }
             }
 
             const formData = new FormData(this);
             formData.delete('input_foto');
-            formData.append('imagem_arquivo', imagemCortadaBlob, 'imovel_cortado.jpg');
+            formData.append('imagem_arquivo', imagemCortadaBlob, 'capa_cortada.jpg');
 
             fetch(window.location.href, {
                 method: 'POST',
@@ -137,6 +226,8 @@
                 }
             });
         });
+
+        alternarTipoCadastro();
     </script>
 </body>
 </html>

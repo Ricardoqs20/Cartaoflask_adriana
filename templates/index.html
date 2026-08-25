@@ -4,8 +4,42 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ perfil.nome }} - {{ perfil.corretora }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=19">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        /* Estilos dos Filtros (Venda / Aluguel) */
+        .filter-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-right: 24px;
+        }
+
+        .filter-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: 8px;
+            border: 2px solid #5c181b;
+            background: transparent;
+            color: #5c181b;
+            font-weight: bold;
+            font-size: 13px;
+            text-align: center;
+            text-decoration: none;
+            transition: 0.2s;
+            cursor: pointer;
+        }
+
+        .filter-btn.active {
+            background: #5c181b;
+            color: white;
+        }
+
+        .filter-btn.disabled {
+            cursor: default;
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body>
     <div class="card-container">
@@ -37,21 +71,35 @@
                 <h2>Imóveis disponíveis</h2>
             </div>
 
+            <!-- FILTRO DE VENDA / ALUGUEL INTELIGENTE -->
+            {% if tem_venda or tem_aluguel %}
+            <div class="filter-container">
+                {% if tem_venda and tem_aluguel %}
+                    <a href="{{ url_for('index', negocio='venda') }}" class="filter-btn {% if aba_ativa == 'venda' %}active{% endif %}">Venda</a>
+                    <a href="{{ url_for('index', negocio='aluguel') }}" class="filter-btn {% if aba_ativa == 'aluguel' %}active{% endif %}">Aluguel</a>
+                {% elif tem_venda %}
+                    <span class="filter-btn active disabled">Venda</span>
+                {% elif tem_aluguel %}
+                    <span class="filter-btn active disabled">Aluguel</span>
+                {% endif %}
+            </div>
+            {% endif %}
+
             {% if imoveis | length > 4 %}
                 <div class="property-scroll" id="propertyScroll">
                     <div class="property-grid">
                         {% for pagina in imoveis | batch(4) %}
                         <div class="property-page">
                             {% for imovel in pagina %}
-                            <!-- Verifica se a imagem é um link externo ou um upload local -->
                             {% set bg_img = imovel.imagem if imovel.imagem.startswith('http') else url_for('static', filename=imovel.imagem) %}
+                            {% set target_url = imovel.link if imovel.link else url_for('detalhe_imovel', id=imovel.id) %}
                             <div class="property-card" style="background-image: url('{{ bg_img }}');">
                                 <div class="card-overlay">
                                     <h3>{{ imovel.titulo }}</h3>
                                     <div class="card-divider"></div>
                                     <p class="price">{{ imovel.preco }}</p>
                                     <p class="location">{{ imovel.localizacao }}</p>
-                                    <a href="{{ imovel.link }}" class="arrow-btn" aria-label="Ver {{ imovel.titulo }}">
+                                    <a href="{{ target_url }}" class="arrow-btn" aria-label="Ver {{ imovel.titulo }}">
                                         <i class="fa-solid fa-arrow-right"></i>
                                     </a>
                                 </div>
@@ -64,23 +112,26 @@
 
                 <div class="carousel-dots" id="carouselDots"></div>
 
-            {% else %}
+            {% elif imoveis | length > 0 %}
                 <div class="property-grid-estatico">
                     {% for imovel in imoveis %}
                     {% set bg_img = imovel.imagem if imovel.imagem.startswith('http') else url_for('static', filename=imovel.imagem) %}
+                    {% set target_url = imovel.link if imovel.link else url_for('detalhe_imovel', id=imovel.id) %}
                     <div class="property-card" style="background-image: url('{{ bg_img }}');">
                         <div class="card-overlay">
                             <h3>{{ imovel.titulo }}</h3>
                             <div class="card-divider"></div>
                             <p class="price">{{ imovel.preco }}</p>
                             <p class="location">{{ imovel.localizacao }}</p>
-                            <a href="{{ imovel.link }}" class="arrow-btn" aria-label="Ver {{ imovel.titulo }}">
+                            <a href="{{ target_url }}" class="arrow-btn" aria-label="Ver {{ imovel.titulo }}">
                                 <i class="fa-solid fa-arrow-right"></i>
                             </a>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
+            {% else %}
+                <p style="padding-right: 24px; color: #666; font-size: 14px;">Nenhum imóvel disponível nesta categoria no momento.</p>
             {% endif %}
         </main>
 
@@ -101,7 +152,6 @@
                 <span>Website</span>
             </a>
             <div class="vertical-divider"></div>
-            <!-- Botão de Compartilhar corrigido para chamar a função JavaScript -->
             <a href="javascript:void(0);" onclick="compartilharSite()" class="action-item">
                 <i class="fa-solid fa-share-nodes icon"></i>
                 <span>Compartilhar</span>
@@ -110,7 +160,6 @@
     </div>
 
     <script>
-        // Função de Compartilhamento Robusta
         function compartilharSite() {
             const urlAtual = window.location.href;
             const shareData = {
@@ -121,7 +170,6 @@
 
             if (navigator.share) {
                 navigator.share(shareData).catch((error) => {
-                    console.log('Erro no share nativo:', error);
                     copiarFallback(urlAtual);
                 });
             } else {
@@ -155,7 +203,6 @@
             document.body.removeChild(input);
         }
 
-        // Script do Carrossel de Imóveis
         const scrollContainer = document.getElementById('propertyScroll');
         const dotsContainer = document.getElementById('carouselDots');
         

@@ -2,7 +2,6 @@ import os
 import uuid
 from flask import Flask, render_template, request, redirect, url_for, session, make_response
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.utils import secure_filename
 
 template_dir = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__, template_folder=os.path.join(template_dir, 'templates'), static_folder=os.path.join(template_dir, 'static'))
@@ -13,27 +12,73 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///imoveis.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(template_dir, 'imoveis.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 class Imovel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     titulo = db.Column(db.String(100), nullable=False)
+    negocio = db.Column(db.String(10), nullable=False, default='venda') # 'venda' ou 'aluguel'
     preco_num = db.Column(db.Float, nullable=False)
     preco = db.Column(db.String(50), nullable=False)
     localizacao = db.Column(db.String(100), nullable=False)
     imagem = db.Column(db.String(250), nullable=False)
-    link = db.Column(db.String(250), nullable=False)
+    link = db.Column(db.String(250), nullable=True)
+    descricao = db.Column(db.Text, nullable=True)
+    fotos = db.relationship('FotoImovel', backref='imovel', cascade="all, delete-orphan", lazy=True)
+
+class FotoImovel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    imovel_id = db.Column(db.Integer, db.ForeignKey('imovel.id'), nullable=False)
+    caminho = db.Column(db.String(250), nullable=False)
 
 with app.app_context():
     db.create_all()
 
+def salvar_arquivo(file):
+    if file and file.filename != '':
+        extensao = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'jpg'
+        filename = f"{uuid.uuid4()}.{extensao}"
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        return f"uploads/{filename}"
+    return None
+
 @app.route("/")
 def index():
-    imoveis = Imovel.query.order_by(Imovel.preco_num.desc()).all()
-    perfil = {"nome": "Adriana Lobão", "corretora": "RE/MAX DREAMS", "subtitulo": "O seu estilo de vida merece um imóvel à altura.", "foto": "corretora.png"}
-    return render_template("index.html", perfil=perfil, imoveis=imoveis)
+    # Verifica disponibilidade
+    tem_venda = db.session.query(Imovel).filter_by(negocio='venda').count() > 0
+    tem_aluguel = db.session.query(Imovel).filter_by(negocio='aluguel').count() > 0
+
+    # Lógica da aba selecionada
+    aba_param = request.args.get('negocio')
+    if aba_param in ['venda', 'aluguel']:
+        aba_ativa = aba_param
+    else:
+        if tem_venda:
+            aba_ativa = 'venda'
+        elif tem_aluguel:
+            aba_ativa = 'aluguel'
+        else:
+            aba_ativa = 'venda'
+
+    imoveis = Imovel.query.filter_by(negocio=aba_ativa).order_by(Imovel.preco_num.desc()).all()
+    perfil = {"nome": "Adriana Lobão", "corretora": "", "subtitulo": "O seu estilo de vida merece um imóvel à altura.", "foto": "corretora.png"}
+    
+    return render_template(
+        "index.html", 
+        perfil=perfil, 
+        imoveis=imoveis, 
+        tem_venda=tem_venda, 
+        tem_aluguel=tem_aluguel, 
+        aba_ativa=aba_ativa
+    )
+
+@app.route("/imovel/<int:id>")
+def detalhe_imovel(id):
+    imovel = Imovel.query.get_or_404(id)
+    perfil = {"nome": "Adriana Lobão", "corretora": "", "foto": "corretora.png"}
+    return render_template("detalhes.html", imovel=imovel, perfil=perfil)
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
@@ -58,8 +103,6 @@ def admin_painel():
         return redirect(url_for("admin_login"))
     
     imoveis = Imovel.query.order_by(Imovel.id.desc()).all()
-    
-    # Impede que o navegador guarde cache da página protegida, forçando o pedido de senha
     response = make_response(render_template("admin.html", imoveis=imoveis))
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
@@ -71,26 +114,46 @@ def adicionar_imovel():
     if not session.get('admin_logado'): return redirect(url_for("admin_login"))
     
     if request.method == "POST":
+        tipo_cadastro = request.form.get("tipo_cadastro", "completo")
+        negocio = request.form.get("negocio", "venda")
         titulo = request.form.get("titulo")
-        preco_limpo = request.form.get("preco_num").replace(".", "").replace(",", "")
+        preco_limpo = request.form.get("preco_num", "").replace(".", "").replace(",", "")
         preco_num = float(preco_limpo) if preco_limpo else 0.0
         preco_formatado = f"R$ {int(preco_num):,}".replace(",", ".")
         localizacao = request.form.get("localizacao")
-        link = request.form.get("link")
 
-        file = request.files.get('imagem_arquivo')
-        if file and file.filename != '':
-            extensao = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
-            filename = f"{uuid.uuid4()}.{extensao}"
-            
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            imagem_path = f"uploads/{filename}"
+        capa_file = request.files.get('imagem_arquivo')
+        imagem_capa = salvar_arquivo(capa_file)
+
+        if tipo_cadastro == "link":
+            link = request.form.get("link")
+            descricao = None
         else:
-            imagem_path = "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=800&auto=format&fit=crop"
+            link = None
+            descricao = request.form.get("descricao")
 
-        novo = Imovel(titulo=titulo, preco_num=preco_num, preco=preco_formatado, localizacao=localizacao, imagem=imagem_path, link=link)
+        novo = Imovel(
+            titulo=titulo, 
+            negocio=negocio,
+            preco_num=preco_num, 
+            preco=preco_formatado, 
+            localizacao=localizacao, 
+            imagem=imagem_capa, 
+            link=link, 
+            descricao=descricao
+        )
         db.session.add(novo)
         db.session.commit()
+
+        if tipo_cadastro == "completo":
+            galeria_files = request.files.getlist('fotos_galeria')
+            for f in galeria_files:
+                caminho_foto = salvar_arquivo(f)
+                if caminho_foto:
+                    nova_foto = FotoImovel(imovel_id=novo.id, caminho=caminho_foto)
+                    db.session.add(nova_foto)
+            db.session.commit()
+
         return redirect(url_for("admin_painel"))
 
     return render_template("adicionar.html")
@@ -102,32 +165,60 @@ def editar_imovel(id):
 
     if request.method == "POST":
         imovel.titulo = request.form.get("titulo")
-        preco_limpo = request.form.get("preco_num").replace(".", "").replace(",", "")
+        imovel.negocio = request.form.get("negocio", "venda")
+        preco_limpo = request.form.get("preco_num", "").replace(".", "").replace(",", "")
         imovel.preco_num = float(preco_limpo) if preco_limpo else 0.0
         imovel.preco = f"R$ {int(imovel.preco_num):,}".replace(",", ".")
         imovel.localizacao = request.form.get("localizacao")
-        imovel.link = request.form.get("link")
 
-        file = request.files.get('imagem_arquivo')
-        if file and file.filename != '':
-            extensao = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
-            filename = f"{uuid.uuid4()}.{extensao}"
-            
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            imovel.imagem = f"uploads/{filename}"
+        capa_file = request.files.get('imagem_arquivo')
+        if capa_file and capa_file.filename != '':
+            nova_capa = salvar_arquivo(capa_file)
+            if nova_capa:
+                imovel.imagem = nova_capa
+
+        if imovel.link:
+            imovel.link = request.form.get("link")
+        else:
+            imovel.descricao = request.form.get("descricao")
+            galeria_files = request.files.getlist('fotos_galeria')
+            for f in galeria_files:
+                caminho_foto = salvar_arquivo(f)
+                if caminho_foto:
+                    nova_foto = FotoImovel(imovel_id=imovel.id, caminho=caminho_foto)
+                    db.session.add(nova_foto)
 
         db.session.commit()
         return redirect(url_for("admin_painel"))
 
     return render_template("editar.html", imovel=imovel)
 
+@app.route("/admin/excluir_foto/<int:foto_id>")
+def excluir_foto(foto_id):
+    if not session.get('admin_logado'): return redirect(url_for("admin_login"))
+    foto = FotoImovel.query.get_or_404(foto_id)
+    imovel_id = foto.imovel_id
+    
+    path = os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(foto.caminho))
+    if os.path.exists(path): os.remove(path)
+    
+    db.session.delete(foto)
+    db.session.commit()
+    return redirect(url_for("editar_imovel", id=imovel_id))
+
 @app.route("/admin/excluir/<int:id>")
 def excluir_imovel(id):
     if not session.get('admin_logado'): return redirect(url_for("admin_login"))
     imovel = Imovel.query.get_or_404(id)
-    if imovel.imagem.startswith('uploads/'):
+    
+    if imovel.imagem and imovel.imagem.startswith('uploads/'):
         path = os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(imovel.imagem))
         if os.path.exists(path): os.remove(path)
+        
+    for foto in imovel.fotos:
+        path = os.path.join(app.config['UPLOAD_FOLDER'], os.path.basename(foto.caminho))
+        if os.path.exists(path): os.remove(path)
+
     db.session.delete(imovel)
     db.session.commit()
     return redirect(url_for("admin_painel"))

@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Editar Imóvel</title>
-    <!-- Cropper CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
     <style>
         * { box-sizing: border-box; }
@@ -14,49 +13,74 @@
         
         .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
         label { font-size: 13px; font-weight: bold; margin-bottom: 5px; color: #333; }
-        input { padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; width: 100%; }
+        input, textarea { padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 15px; width: 100%; font-family: inherit; }
         
-        /* PREVIEW COMPACTO */
-        .foto-preview-box { display: flex; justify-content: center; margin-bottom: 10px; }
-        #img_atual { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; border: 1px solid #ddd; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .radio-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .radio-option { flex: 1; text-align: center; }
+        .radio-option input { display: none; }
+        .radio-option label { display: block; padding: 12px; border: 2px solid #ccc; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; color: #555; transition: 0.2s; }
+        .radio-option input:checked + label { border-color: #5c181b; background: #5c181b; color: white; }
 
-        /* ÁREA DE CORTE */
+        .tipo-tag { background: #f0f0f0; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; color: #5c181b; display: inline-block; margin-bottom: 15px; }
+        
+        .foto-preview-box { display: flex; justify-content: center; margin-bottom: 10px; }
+        #img_atual { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; border: 1px solid #ddd; }
+
         .crop-container { display: none; width: 100%; background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
         .crop-wrapper { width: 100%; max-height: 400px; overflow: hidden; margin-bottom: 15px; border-radius: 8px; }
         #image-to-crop { max-width: 100%; display: block; }
 
-        /* BOTÕES MODERNIZADOS */
+        .galeria-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+        .galeria-item { position: relative; }
+        .galeria-item img { width: 100%; height: 90px; object-fit: cover; border-radius: 6px; }
+        .btn-excluir-foto { position: absolute; top: 4px; right: 4px; background: rgba(220, 53, 69, 0.9); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center; text-decoration: none; }
+
         button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 15px; transition: 0.2s; }
-        
         .btn-salvar { background: #5c181b; color: white; margin-top: 10px; }
-        .btn-salvar:active { background: #421113; }
-        
-        .btn-confirmar { 
-            background: #222; 
-            color: #fff; 
-            text-transform: uppercase; 
-            letter-spacing: 1px; 
-            font-size: 13px;
-        }
-        .btn-confirmar:active { background: #000; transform: scale(0.98); }
+        .btn-confirmar { background: #222; color: #fff; text-transform: uppercase; letter-spacing: 1px; font-size: 13px; }
 
         .btn-voltar { display: block; text-align: center; margin-top: 20px; color: #5c181b; text-decoration: none; font-size: 14px; font-weight: 500; }
+        .help-text { font-size: 11px; color: #666; margin-top: 2px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Editar Imóvel</h2>
+        
+        <div style="text-align: center;">
+            <span class="tipo-tag">
+                {% if imovel.link %}
+                    Tipo: Link Existente
+                {% else %}
+                    Tipo: Imóvel Cadastrado
+                {% endif %}
+            </span>
+        </div>
+
         <form id="form-editar" method="POST" enctype="multipart/form-data">
             
+            <label>Finalidade:</label>
+            <div class="radio-group">
+                <div class="radio-option">
+                    <input type="radio" id="negocio_venda" name="negocio" value="venda" {% if imovel.negocio != 'aluguel' %}checked{% endif %}>
+                    <label for="negocio_venda">Venda</label>
+                </div>
+                <div class="radio-option">
+                    <input type="radio" id="negocio_aluguel" name="negocio" value="aluguel" {% if imovel.negocio == 'aluguel' %}checked{% endif %}>
+                    <label for="negocio_aluguel">Aluguel</label>
+                </div>
+            </div>
+
+            <!-- CAPA EXCLUSIVA COM PARÂMETRO ANTICACHE -->
             <div class="form-group">
-                <label>Foto Atual:</label>
+                <label>Foto de Capa Principal:</label>
                 <div class="foto-preview-box">
-                    <img id="img_atual" src="/static/{{ imovel.imagem }}" alt="Foto do Imóvel">
+                    <img id="img_atual" src="/static/{{ imovel.imagem }}" alt="Foto da Capa">
                 </div>
             </div>
 
             <div class="form-group">
-                <label>Trocar Foto (Opcional):</label>
+                <label>Trocar Foto de Capa:</label>
                 <input type="file" id="input_foto" accept="image/*" onclick="this.value=null;" onchange="iniciarCropperEdit(event)">
             </div>
 
@@ -64,7 +88,7 @@
                 <div class="crop-wrapper">
                     <img id="image-to-crop" src="">
                 </div>
-                <button type="button" id="btn-confirmar-corte" class="btn-confirmar">Cortar Imagem</button>
+                <button type="button" id="btn-confirmar-corte" class="btn-confirmar">Cortar Capa</button>
             </div>
 
             <div class="form-group">
@@ -81,11 +105,40 @@
                 <label>Localização:</label>
                 <input type="text" name="localizacao" value="{{ imovel.localizacao }}" required>
             </div>
-            
+
+            {% if imovel.link %}
             <div class="form-group">
-                <label>Link:</label>
+                <label>Link Externo do Imóvel:</label>
                 <input type="text" name="link" value="{{ imovel.link }}" required>
             </div>
+            {% else %}
+            <!-- GALERIA DE FOTOS ADICIONAIS -->
+            <div class="form-group">
+                <label>Galeria de Fotos Adicionais:</label>
+                {% if imovel.fotos %}
+                <div class="galeria-grid" id="galeria-grid">
+                    {% for foto in imovel.fotos %}
+                    <div class="galeria-item" id="foto-item-{{ foto.id }}">
+                        <img src="/static/{{ foto.caminho }}" alt="Foto Galeria">
+                        <button type="button" class="btn-excluir-foto" onclick="excluirFotoAjax('{{ foto.id }}')" title="Excluir Foto">✕</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="help-text">Nenhuma foto adicional cadastrada na galeria.</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label>Adicionar Novas Fotos à Galeria:</label>
+                <input type="file" name="fotos_galeria" accept="image/*" multiple>
+            </div>
+
+            <div class="form-group">
+                <label>Descrição do Imóvel:</label>
+                <textarea name="descricao" rows="4" required>{{ imovel.descricao if imovel.descricao else '' }}</textarea>
+            </div>
+            {% endif %}
 
             <button type="submit" class="btn-salvar">Salvar Alterações</button>
         </form>
@@ -103,6 +156,19 @@
             input.value = Number(valor).toLocaleString('pt-BR');
         }
 
+        function excluirFotoAjax(fotoId) {
+            fetch('/admin/excluir_foto/' + fotoId, {
+                method: 'GET'
+            }).then(response => {
+                if (response.ok) {
+                    const item = document.getElementById('foto-item-' + fotoId);
+                    if (item) {
+                        item.remove();
+                    }
+                }
+            });
+        }
+
         function iniciarCropperEdit(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -111,7 +177,6 @@
             reader.onload = function(e) {
                 const imgCrop = document.getElementById('image-to-crop');
                 const cropBox = document.getElementById('cropBox');
-                
                 cropBox.style.display = 'block';
                 
                 if (cropper) {
@@ -131,7 +196,6 @@
                         cropBoxResizable: false
                     });
                 };
-                
                 imgCrop.src = e.target.result;
             };
             reader.readAsDataURL(file);
@@ -139,12 +203,10 @@
 
         document.getElementById('btn-confirmar-corte').addEventListener('click', function() {
             if (!cropper) return;
-
             cropper.getCroppedCanvas({width: 800, height: 800}).toBlob(function(blob) {
                 imagemCortadaBlob = blob;
                 document.getElementById('img_atual').src = URL.createObjectURL(blob);
                 document.getElementById('cropBox').style.display = 'none';
-                
                 cropper.destroy();
                 cropper = null;
             }, 'image/jpeg', 0.9);
@@ -156,7 +218,7 @@
             formData.delete('input_foto');
             
             if (imagemCortadaBlob) {
-                formData.append('imagem_arquivo', imagemCortadaBlob, 'imovel_cortado.jpg');
+                formData.append('imagem_arquivo', imagemCortadaBlob, 'capa_cortada.jpg');
             }
 
             fetch(window.location.href, {
