@@ -4,6 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ imovel.titulo }} | {{ perfil.nome }}</title>
+    
+    <!-- FAVICON E ÍCONE DO APP MOBILE -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename=perfil.foto) }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename=perfil.foto) }}">
+
+    <!-- META TAGS OPEN GRAPH (PREVIEW NO WHATSAPP E REDES SOCIAIS) -->
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="{{ imovel.titulo }} - {{ imovel.preco }}">
+    <meta property="og:description" content="{{ imovel.localizacao }}{% if imovel.descricao %} | {{ imovel.descricao | truncate(140) }}{% endif %}">
+    <meta property="og:image" content="{{ request.url_root.rstrip('/') }}/static/{{ imovel.imagem }}">
+    <meta property="og:url" content="{{ request.url }}">
+    <meta name="twitter:card" content="summary_large_image">
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -75,21 +88,24 @@
         <!-- Carrossel Limpo (Fotos em 4:3) -->
         <div class="carousel-container">
             
-            {% set total_fotos = imovel.fotos | length if imovel.fotos else 0 %}
-            {% if total_fotos > 1 %}
-                <span class="foto-contador" id="contador-indicador">1 / {{ total_fotos }}</span>
+            {% set total_fotos = imovel.fotos | length if imovel.fotos else 1 %}
+            {% if imovel.fotos and imovel.fotos | length > 1 %}
+                <span class="foto-contador" id="contador-indicador">1 / {{ imovel.fotos | length }}</span>
                 <button class="carousel-btn btn-prev" onclick="mudarSlide(-1)"><i class="fa-solid fa-chevron-left"></i></button>
                 <button class="carousel-btn btn-next" onclick="mudarSlide(1)"><i class="fa-solid fa-chevron-right"></i></button>
             {% endif %}
 
             <div class="carousel-slides" id="carouselSlides" onscroll="atualizarContador()">
-                <!-- Apenas Fotos da Galeria -->
-                {% if imovel.fotos %}
+                {% if imovel.fotos and imovel.fotos | length > 0 %}
                     {% for foto in imovel.fotos %}
                     <div class="slide">
-                        <img src="/static/{{ foto.caminho }}" alt="Foto do imóvel">
+                        <img src="/static/{{ foto.caminho }}" alt="{{ imovel.titulo }}">
                     </div>
                     {% endfor %}
+                {% else %}
+                    <div class="slide">
+                        <img src="/static/{{ imovel.imagem }}" alt="{{ imovel.titulo }}">
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -107,7 +123,7 @@
             <h3 class="secao-titulo">Sobre o imóvel</h3>
             <p class="descricao-texto">{{ imovel.descricao }}</p>
 
-            <a href="https://wa.me/559881844487?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20imóvel%20{{ imovel.titulo | urlencode }}" target="_blank" class="btn-whatsapp">
+            <a href="https://wa.me/{{ perfil.whatsapp }}?text=Olá,%20gostaria%20de%20saber%20mais%20sobre%20o%20imóvel%20{{ imovel.titulo | urlencode }}" target="_blank" class="btn-whatsapp">
                 <i class="fa-brands fa-whatsapp fa-lg"></i> Falar sobre este imóvel
             </a>
         </div>

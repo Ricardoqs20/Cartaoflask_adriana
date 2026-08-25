@@ -69,6 +69,22 @@ def salvar_arquivo(file):
             
     return None
 
+PERFIL = {
+    "nome": "Adriana Lobão",
+    "cargo": "Consultora Imobiliária",
+    "corretora": "RE/MAX",
+    "subtitulo": "O seu estilo de vida merece um imóvel à altura.",
+    "foto": "corretora.png",
+    "logo": "logobranca.png",
+    "whatsapp": "559881844487",
+    "instagram": "https://www.instagram.com/adrianaslobao/",
+    "website": "https://www.remax.com.br/adrianalobao"
+}
+
+@app.context_processor
+def inject_globals():
+    return dict(perfil=PERFIL)
+
 @app.route("/")
 def index():
     tem_venda = db.session.query(Imovel).filter_by(negocio='venda').count() > 0
@@ -90,12 +106,12 @@ def index():
             aba_ativa = 'aluguel'
         else:
             aba_ativa = 'venda'
-
-    perfil = {"nome": "Adriana Lobão", "corretora": "", "subtitulo": "O seu estilo de vida merece um imóvel à altura.", "foto": "corretora.png"}
     
+    imoveis = imoveis_aluguel if aba_ativa == 'aluguel' else imoveis_venda
+
     return render_template(
         "index.html", 
-        perfil=perfil, 
+        imoveis=imoveis,
         imoveis_venda=imoveis_venda, 
         imoveis_aluguel=imoveis_aluguel, 
         tem_venda=tem_venda, 
@@ -106,8 +122,7 @@ def index():
 @app.route("/imovel/<int:id>")
 def detalhe_imovel(id):
     imovel = Imovel.query.get_or_404(id)
-    perfil = {"nome": "Adriana Lobão", "corretora": "", "foto": "corretora.png"}
-    return render_template("detalhes.html", imovel=imovel, perfil=perfil)
+    return render_template("detalhes.html", imovel=imovel)
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
