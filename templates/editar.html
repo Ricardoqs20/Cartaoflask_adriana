@@ -115,25 +115,30 @@
             {% else %}
             <!-- GALERIA DE FOTOS ADICIONAIS -->
             <div class="form-group">
-                <label>Galeria de Fotos Adicionais:</label>
-                {% if imovel.fotos %}
-                <div class="galeria-grid" id="galeria-grid">
+                <label>Galeria de Fotos Adicionais Já Cadastradas (<span id="count-cadastradas">{{ imovel.fotos|length if imovel.fotos else 0 }}</span> / 20):</label>
+                <div class="galeria-grid" id="galeria-grid" {% if not imovel.fotos %}style="display: none;"{% endif %}>
+                    {% if imovel.fotos %}
                     {% for foto in imovel.fotos %}
                     <div class="galeria-item" id="foto-item-{{ foto.id }}">
                         <img src="/static/{{ foto.caminho }}" alt="Foto Galeria">
                         <button type="button" class="btn-excluir-foto" onclick="excluirFotoAjax('{{ foto.id }}')" title="Excluir Foto">✕</button>
                     </div>
                     {% endfor %}
+                    {% endif %}
                 </div>
-                {% else %}
-                <p class="help-text">Nenhuma foto adicional cadastrada na galeria.</p>
-                {% endif %}
+                <p class="help-text" id="sem-fotos-msg" {% if imovel.fotos %}style="display: none;"{% endif %}>Nenhuma foto adicional cadastrada na galeria.</p>
             </div>
 
             <div class="form-group">
-                <label for="input_galeria_novas">Adicionar Novas Fotos à Galeria (Máximo 50 no total):</label>
+                <label for="input_galeria_novas">Adicionar Novas Fotos à Galeria (Vagas disponíveis: <span id="vagas-disponiveis">{{ 20 - (imovel.fotos|length if imovel.fotos else 0) }}</span>):</label>
                 <input type="file" id="input_galeria_novas" name="fotos_galeria" accept="image/*" multiple>
-                <span class="help-text">Se enviar mais fotos do que o limite de 50, o sistema salvará automaticamente apenas as que cabem.</span>
+                <span class="help-text">O limite total é de 20 fotos. Se enviar mais fotos do que as vagas disponíveis, o sistema incluirá apenas as primeiras que cabem.</span>
+
+                <!-- Preview das novas fotos selecionadas -->
+                <div id="preview-novas-container" style="display: none; margin-top: 12px;">
+                    <label style="font-size: 12px; color: #555;">Novas fotos a serem adicionadas (<span id="novas-count">0</span>):</label>
+                    <div class="galeria-grid" id="preview-novas-grid"></div>
+                </div>
             </div>
 
             <div class="form-group">
@@ -149,8 +154,124 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script>
+        const LIMITE_MAXIMO = 20;
         let cropper;
         let imagemCortadaBlob = null;
+        let novasFotosDataTransfer = new DataTransfer();
+
+        const inputGaleriaNovas = document.getElementById('input_galeria_novas');
+        const previewNovasContainer = document.getElementById('preview-novas-container');
+        const previewNovasGrid = document.getElementById('preview-novas-grid');
+        const novasCount = document.getElementById('novas-count');
+
+        function getFotosCadastradasCount() {
+            const grid = document.getElementById('galeria-grid');
+            if (!grid) return 0;
+            return grid.querySelectorAll('.galeria-item').length;
+        }
+
+        function getVagasRestantes() {
+            const cadastradas = getFotosCadastradasCount();
+            return Math.max(0, LIMITE_MAXIMO - cadastradas);
+        }
+
+        function atualizarContadoresEdicao() {
+            const cadastradas = getFotosCadastradasCount();
+            const vagas = Math.max(0, LIMITE_MAXIMO - cadastradas);
+            
+            const countCadastradasEl = document.getElementById('count-cadastradas');
+            if (countCadastradasEl) countCadastradasEl.textContent = cadastradas;
+            
+            const vagasEl = document.getElementById('vagas-disponiveis');
+            if (vagasEl) vagasEl.textContent = vagas;
+
+            if (novasFotosDataTransfer.files.length > vagas) {
+                const novoDt = new DataTransfer();
+                Array.from(novasFotosDataTransfer.files).slice(0, vagas).forEach(f => novoDt.items.add(f));
+                novasFotosDataTransfer = novoDt;
+                if (inputGaleriaNovas) inputGaleriaNovas.files = novasFotosDataTransfer.files;
+                renderNovasFotosPreview();
+            }
+        }
+
+        function renderNovasFotosPreview() {
+            if (!previewNovasGrid) return;
+            previewNovasGrid.innerHTML = '';
+            const files = novasFotosDataTransfer.files;
+            if (novasCount) novasCount.textContent = files.length;
+
+            if (files.length === 0) {
+                if (previewNovasContainer) previewNovasContainer.style.display = 'none';
+                return;
+            }
+
+            if (previewNovasContainer) previewNovasContainer.style.display = 'block';
+
+            Array.from(files).forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'galeria-item';
+
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.alt = `Nova Foto ${index + 1}`;
+
+                const btnRemover = document.createElement('button');
+                btnRemover.type = 'button';
+                btnRemover.className = 'btn-excluir-foto';
+                btnRemover.innerHTML = '✕';
+                btnRemover.title = 'Remover esta foto';
+                btnRemover.onclick = function() {
+                    removerNovaFoto(index);
+                };
+
+                item.appendChild(img);
+                item.appendChild(btnRemover);
+                previewNovasGrid.appendChild(item);
+            });
+        }
+
+        function removerNovaFoto(indexToRemove) {
+            const novoDt = new DataTransfer();
+            Array.from(novasFotosDataTransfer.files).forEach((file, index) => {
+                if (index !== indexToRemove) {
+                    novoDt.items.add(file);
+                }
+            });
+            novasFotosDataTransfer = novoDt;
+            if (inputGaleriaNovas) inputGaleriaNovas.files = novasFotosDataTransfer.files;
+            renderNovasFotosPreview();
+        }
+
+        if (inputGaleriaNovas) {
+            inputGaleriaNovas.addEventListener('change', function() {
+                const vagas = getVagasRestantes();
+                
+                if (vagas <= 0) {
+                    alert('O imóvel já possui 20 fotos (limite máximo). Para adicionar novas fotos, exclua algumas fotos da galeria acima primeiro.');
+                    this.value = '';
+                    novasFotosDataTransfer = new DataTransfer();
+                    this.files = novasFotosDataTransfer.files;
+                    renderNovasFotosPreview();
+                    return;
+                }
+                
+                const filesArray = Array.from(this.files).filter(f => f.type.startsWith('image/'));
+                
+                if (filesArray.length > vagas) {
+                    alert(`Você selecionou ${filesArray.length} fotos, mas só há ${vagas} vaga(s) disponível(is) (limite total de 20 fotos). Apenas as primeiras ${vagas} fotos foram adicionadas.`);
+                }
+                
+                const filesParaAdicionar = filesArray.slice(0, vagas);
+                
+                novasFotosDataTransfer = new DataTransfer();
+                filesParaAdicionar.forEach(file => {
+                    novasFotosDataTransfer.items.add(file);
+                });
+                
+                this.files = novasFotosDataTransfer.files;
+                renderNovasFotosPreview();
+            });
+        }
 
         function mascaraMoeda(input) {
             let valor = input.value.replace(/\D/g, '');
@@ -167,11 +288,20 @@
                     if (item) {
                         item.remove();
                     }
+                    const galeriaGrid = document.getElementById('galeria-grid');
+                    const semFotosMsg = document.getElementById('sem-fotos-msg');
+                    if (galeriaGrid && galeriaGrid.children.length === 0) {
+                        galeriaGrid.style.display = 'none';
+                        if (semFotosMsg) semFotosMsg.style.display = 'block';
+                    }
+                    atualizarContadoresEdicao();
                 }
             });
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            atualizarContadoresEdicao();
+            
             const inputFoto = document.getElementById('input_foto');
             if (inputFoto) {
                 inputFoto.addEventListener('change', function(event) {
@@ -230,6 +360,15 @@
             
             if (imagemCortadaBlob) {
                 formData.append('imagem_arquivo', imagemCortadaBlob, 'capa_cortada.jpg');
+            }
+
+            const vagas = getVagasRestantes();
+            if (novasFotosDataTransfer && novasFotosDataTransfer.files.length > 0) {
+                formData.delete('fotos_galeria');
+                const filesToSend = Array.from(novasFotosDataTransfer.files).slice(0, vagas);
+                filesToSend.forEach(file => {
+                    formData.append('fotos_galeria', file);
+                });
             }
 
             fetch(window.location.href, {

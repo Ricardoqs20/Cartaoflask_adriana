@@ -15,6 +15,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(template_dir, 'imoveis.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['MAX_CONTENT_LENGTH'] = 64 * 1024 * 1024
 db = SQLAlchemy(app)
 
 class Imovel(db.Model):
@@ -177,8 +178,8 @@ def adicionar_imovel():
             galeria_files = request.files.getlist('fotos_galeria')
             galeria_files = [f for f in galeria_files if f and f.filename != '']
             
-            if len(galeria_files) > 50:
-                galeria_files = galeria_files[:50]
+            if len(galeria_files) > 20:
+                galeria_files = galeria_files[:20]
 
             for f in galeria_files:
                 caminho_foto = salvar_arquivo(f)
@@ -221,7 +222,7 @@ def editar_imovel(id):
             galeria_files = [f for f in galeria_files if f and f.filename != '']
             
             fotos_atuais_count = len(imovel.fotos)
-            vagas_restantes = 50 - fotos_atuais_count
+            vagas_restantes = 20 - fotos_atuais_count
 
             if vagas_restantes <= 0:
                 galeria_files = []
