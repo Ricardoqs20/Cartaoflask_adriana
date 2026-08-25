@@ -26,7 +26,7 @@
         .foto-preview-box { display: flex; justify-content: center; margin-bottom: 10px; }
         #img_atual { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; border: 1px solid #ddd; }
 
-        .crop-container { display: none; width: 100%; background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
+        .crop-container { width: 100%; background: #111; padding: 15px; border-radius: 12px; margin-bottom: 20px; text-align: center; }
         .crop-wrapper { width: 100%; max-height: 400px; overflow: hidden; margin-bottom: 15px; border-radius: 8px; }
         #image-to-crop { max-width: 100%; display: block; }
 
@@ -71,7 +71,7 @@
                 </div>
             </div>
 
-            <!-- CAPA EXCLUSIVA COM PARÂMETRO ANTICACHE -->
+            <!-- CAPA EXCLUSIVA -->
             <div class="form-group">
                 <label>Foto de Capa Principal:</label>
                 <div class="foto-preview-box">
@@ -80,11 +80,12 @@
             </div>
 
             <div class="form-group">
-                <label>Trocar Foto de Capa:</label>
-                <input type="file" id="input_foto" accept="image/*" onclick="this.value=null;" onchange="iniciarCropperEdit(event)">
+                <label for="input_foto">Trocar Foto de Capa:</label>
+                <input type="file" id="input_foto" accept="image/*">
             </div>
 
-            <div class="crop-container" id="cropBox">
+            <!-- Container do Corte -->
+            <div class="crop-container" id="cropBox" style="display: none;">
                 <div class="crop-wrapper">
                     <img id="image-to-crop" src="">
                 </div>
@@ -92,24 +93,24 @@
             </div>
 
             <div class="form-group">
-                <label>Título:</label>
-                <input type="text" name="titulo" value="{{ imovel.titulo }}" required>
+                <label for="titulo_input">Título:</label>
+                <input type="text" id="titulo_input" name="titulo" value="{{ imovel.titulo }}" required>
             </div>
             
             <div class="form-group">
-                <label>Preço:</label>
+                <label for="preco_input">Preço:</label>
                 <input type="text" id="preco_input" name="preco_num" value="{{ imovel.preco_num | int }}" required oninput="mascaraMoeda(this)">
             </div>
             
             <div class="form-group">
-                <label>Localização:</label>
-                <input type="text" name="localizacao" value="{{ imovel.localizacao }}" required>
+                <label for="localizacao_input">Localização:</label>
+                <input type="text" id="localizacao_input" name="localizacao" value="{{ imovel.localizacao }}" required>
             </div>
 
             {% if imovel.link %}
             <div class="form-group">
-                <label>Link Externo do Imóvel:</label>
-                <input type="text" name="link" value="{{ imovel.link }}" required>
+                <label for="input_link_externo">Link Externo do Imóvel:</label>
+                <input type="text" id="input_link_externo" name="link" value="{{ imovel.link }}" required>
             </div>
             {% else %}
             <!-- GALERIA DE FOTOS ADICIONAIS -->
@@ -130,13 +131,14 @@
             </div>
 
             <div class="form-group">
-                <label>Adicionar Novas Fotos à Galeria:</label>
-                <input type="file" name="fotos_galeria" accept="image/*" multiple>
+                <label for="input_galeria_novas">Adicionar Novas Fotos à Galeria (Máximo 50 no total):</label>
+                <input type="file" id="input_galeria_novas" name="fotos_galeria" accept="image/*" multiple>
+                <span class="help-text">Se enviar mais fotos do que o limite de 50, o sistema salvará automaticamente apenas as que cabem.</span>
             </div>
 
             <div class="form-group">
-                <label>Descrição do Imóvel:</label>
-                <textarea name="descricao" rows="4" required>{{ imovel.descricao if imovel.descricao else '' }}</textarea>
+                <label for="input_descricao">Descrição do Imóvel:</label>
+                <textarea id="input_descricao" name="descricao" rows="4" required>{{ imovel.descricao if imovel.descricao else '' }}</textarea>
             </div>
             {% endif %}
 
@@ -169,37 +171,40 @@
             });
         }
 
-        function iniciarCropperEdit(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const imgCrop = document.getElementById('image-to-crop');
-                const cropBox = document.getElementById('cropBox');
-                cropBox.style.display = 'block';
-                
-                if (cropper) {
-                    cropper.destroy();
-                    cropper = null;
-                }
-                
-                imgCrop.onload = function() {
-                    cropper = new Cropper(imgCrop, {
-                        aspectRatio: 1,
-                        viewMode: 1,
-                        dragMode: 'move',
-                        guides: true,
-                        center: true,
-                        autoCropArea: 1,
-                        cropBoxMovable: false,
-                        cropBoxResizable: false
-                    });
-                };
-                imgCrop.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputFoto = document.getElementById('input_foto');
+            if (inputFoto) {
+                inputFoto.addEventListener('change', function(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const imgCrop = document.getElementById('image-to-crop');
+                        const cropBox = document.getElementById('cropBox');
+                        
+                        if (cropper) {
+                            cropper.destroy();
+                            cropper = null;
+                        }
+                        
+                        cropBox.style.display = 'block';
+                        cropBox.style.visibility = 'visible';
+                        imgCrop.src = e.target.result;
+                        
+                        setTimeout(() => {
+                            cropper = new Cropper(imgCrop, {
+                                aspectRatio: 1,
+                                viewMode: 1,
+                                autoCropArea: 0.8,
+                                responsive: true,
+                            });
+                        }, 100);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+        });
 
         document.getElementById('btn-confirmar-corte').addEventListener('click', function() {
             if (!cropper) return;
@@ -209,12 +214,18 @@
                 document.getElementById('cropBox').style.display = 'none';
                 cropper.destroy();
                 cropper = null;
+                alert('Corte atualizado com sucesso!');
             }, 'image/jpeg', 0.9);
         });
 
         document.getElementById('form-editar').addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(this);
+            
+            const precoInput = document.getElementById('preco_input');
+            let precoLimpo = precoInput.value.replace(/\./g, '').replace(',', '.');
+            formData.set('preco_num', precoLimpo);
+
             formData.delete('input_foto');
             
             if (imagemCortadaBlob) {

@@ -2,6 +2,7 @@ import os
 import uuid
 from flask import Flask, render_template, request, redirect, url_for, session, make_response
 from flask_sqlalchemy import SQLAlchemy
+from PIL import Image
 
 template_dir = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__, template_folder=os.path.join(template_dir, 'templates'), static_folder=os.path.join(template_dir, 'static'))
@@ -19,7 +20,7 @@ db = SQLAlchemy(app)
 class Imovel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     titulo = db.Column(db.String(100), nullable=False)
-    negocio = db.Column(db.String(10), nullable=False, default='venda') # 'venda' ou 'aluguel'
+    negocio = db.Column(db.String(10), nullable=False, default='venda')
     preco_num = db.Column(db.Float, nullable=False)
     preco = db.Column(db.String(50), nullable=False)
     localizacao = db.Column(db.String(100), nullable=False)
@@ -37,22 +38,49 @@ with app.app_context():
     db.create_all()
 
 def salvar_arquivo(file):
-    if file and file.filename != '':
-        extensao = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'jpg'
-        filename = f"{uuid.uuid4()}.{extensao}"
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        return f"uploads/{filename}"
+    if file:
+        # Se o filename estiver vazio (comum em Blobs do CropperJS), geramos um nome padrão
+        filename_original = file.filename if file.filename else "capa_cortada.jpg"
+        ext = filename_original.rsplit('.', 1)[1].lower() if '.' in filename_original else 'jpg'
+        filename = f"{uuid.uuid4()}.{ext}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        
+        try:
+            imagem = Image.open(file)
+            
+            if imagem.mode in ('RGBA', 'LA'):
+                fundo = Image.new('RGB', imagem.size, (255, 255, 255))
+                fundo.paste(imagem, mask=imagem.split()[3])
+                imagem = fundo
+            elif imagem.mode != 'RGB':
+                imagem = imagem.convert('RGB')
+            
+            max_largura = 1920
+            if imagem.width > max_largura:
+                nova_altura = int((max_largura / imagem.width) * imagem.height)
+                imagem = imagem.resize((max_largura, nova_altura), Image.Resampling.LANCZOS)
+            
+            imagem.save(filepath, 'JPEG', quality=82, optimize=True)
+            return f"uploads/{filename}"
+        except Exception as e:
+            print(f"Erro ao processar imagem com Pillow: {e}")
+            return None
+            
     return None
 
 @app.route("/")
 def index():
-    # Verifica disponibilidade
     tem_venda = db.session.query(Imovel).filter_by(negocio='venda').count() > 0
     tem_aluguel = db.session.query(Imovel).filter_by(negocio='aluguel').count() > 0
 
-    # Lógica da aba selecionada
+    imoveis_venda = Imovel.query.filter_by(negocio='venda').order_by(Imovel.preco_num.desc()).all()
+    imoveis_aluguel = Imovel.query.filter_by(negocio='aluguel').order_by(Imovel.preco_num.desc()).all()
+
     aba_param = request.args.get('negocio')
-    if aba_param in ['venda', 'aluguel']:
+    
+    if aba_param == 'aluguel' and not tem_aluguel:
+        aba_ativa = 'venda'
+    elif aba_param in ['venda', 'aluguel']:
         aba_ativa = aba_param
     else:
         if tem_venda:
@@ -62,13 +90,13 @@ def index():
         else:
             aba_ativa = 'venda'
 
-    imoveis = Imovel.query.filter_by(negocio=aba_ativa).order_by(Imovel.preco_num.desc()).all()
     perfil = {"nome": "Adriana Lobão", "corretora": "", "subtitulo": "O seu estilo de vida merece um imóvel à altura.", "foto": "corretora.png"}
     
     return render_template(
         "index.html", 
         perfil=perfil, 
-        imoveis=imoveis, 
+        imoveis_venda=imoveis_venda, 
+        imoveis_aluguel=imoveis_aluguel, 
         tem_venda=tem_venda, 
         tem_aluguel=tem_aluguel, 
         aba_ativa=aba_ativa
@@ -147,6 +175,11 @@ def adicionar_imovel():
 
         if tipo_cadastro == "completo":
             galeria_files = request.files.getlist('fotos_galeria')
+            galeria_files = [f for f in galeria_files if f and f.filename != '']
+            
+            if len(galeria_files) > 50:
+                galeria_files = galeria_files[:50]
+
             for f in galeria_files:
                 caminho_foto = salvar_arquivo(f)
                 if caminho_foto:
@@ -177,11 +210,24 @@ def editar_imovel(id):
             if nova_capa:
                 imovel.imagem = nova_capa
 
-        if imovel.link:
+        # Verifica se o imóvel é do tipo link ou completo
+        if imovel.link is not None and imovel.link != '':
             imovel.link = request.form.get("link")
         else:
             imovel.descricao = request.form.get("descricao")
+            
+            # Pega e limpa a lista de arquivos para garantir que só contêm arquivos válidos
             galeria_files = request.files.getlist('fotos_galeria')
+            galeria_files = [f for f in galeria_files if f and f.filename != '']
+            
+            fotos_atuais_count = len(imovel.fotos)
+            vagas_restantes = 50 - fotos_atuais_count
+
+            if vagas_restantes <= 0:
+                galeria_files = []
+            elif len(galeria_files) > vagas_restantes:
+                galeria_files = galeria_files[:vagas_restantes]
+
             for f in galeria_files:
                 caminho_foto = salvar_arquivo(f)
                 if caminho_foto:
