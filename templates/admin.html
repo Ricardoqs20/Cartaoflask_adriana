@@ -6,7 +6,8 @@
     <!-- ESSA LINHA ABAIXO BLOQUEIA O IPHONE DE TRANSFORMAR NÚMEROS EM LINKS AZUIS -->
     <meta name="format-detection" content="telephone=no">
     <title>Painel Administrativo - {{ perfil.nome }}</title>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename=perfil.foto) }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='balao_remax_icon.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='balao_remax_icon.png') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         * { box-sizing: border-box; }

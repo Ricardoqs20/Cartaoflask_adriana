@@ -169,6 +169,9 @@ def adicionar_imovel():
         capa_file = request.files.get('imagem_arquivo')
         imagem_capa = salvar_arquivo(capa_file)
 
+        if not imagem_capa:
+            return "Erro ao processar a foto de capa. Tente outra imagem.", 400
+
         if tipo_cadastro == "link":
             link = request.form.get("link")
             descricao = None
