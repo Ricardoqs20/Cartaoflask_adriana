@@ -129,7 +129,7 @@ def admin_login():
     erro = None
     if request.method == "POST":
         senha = request.form.get("senha")
-        if senha == "adminadmin":
+        if senha == "adm":
             session['admin_logado'] = True
             return redirect(url_for("admin_painel"))
         else:
