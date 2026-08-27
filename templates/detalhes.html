@@ -5,9 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ imovel.titulo }} | {{ perfil.nome }}</title>
     
-    <!-- FAVICON E ÍCONE DO APP MOBILE -->
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename=perfil.foto) }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename=perfil.foto) }}">
+    <!-- FAVICON E ÍCONE DO APP MOBILE (PWA / ANDROID / IOS) -->
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icon-512.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='balao_remax_icon.png') }}">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#5c181b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="{{ perfil.nome }}">
 
     <!-- META TAGS OPEN GRAPH (PREVIEW NO WHATSAPP E REDES SOCIAIS) -->
     <meta property="og:type" content="article">

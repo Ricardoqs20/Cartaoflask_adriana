@@ -1,6 +1,6 @@
 import os
 import uuid
-from flask import Flask, render_template, request, redirect, url_for, session, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, make_response, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from PIL import Image
 
@@ -287,6 +287,16 @@ def excluir_imovel(id):
     db.session.delete(imovel)
     db.session.commit()
     return redirect(url_for("admin_painel"))
+
+@app.route('/manifest.json')
+def manifest():
+    return send_from_directory(app.static_folder, 'manifest.json', mimetype='application/manifest+json')
+
+@app.route('/sw.js')
+def service_worker():
+    response = make_response(send_from_directory(app.static_folder, 'sw.js'))
+    response.headers['Content-Type'] = 'application/javascript'
+    return response
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

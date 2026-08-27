@@ -5,9 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ perfil.nome }} - {{ perfil.cargo }}</title>
     
-    <!-- FAVICON E ÍCONE DO APP MOBILE (PWA) -->
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='balao_remax_icon.png') }}">
+    <!-- FAVICON E ÍCONE DO APP MOBILE (PWA / ANDROID / IOS) -->
+    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='icon-192.png') }}">
+    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='icon-512.png') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='balao_remax_icon.png') }}">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#5c181b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="{{ perfil.nome }}">
 
     <!-- META TAGS OPEN GRAPH (PREVIEW NO WHATSAPP E REDES SOCIAIS) -->
     <meta property="og:type" content="website">
@@ -17,7 +24,7 @@
     <meta property="og:url" content="{{ request.url }}">
     <meta name="twitter:card" content="summary_large_image">
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=22">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=23">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         /* Estilos dos Filtros (Venda / Aluguel) */
@@ -25,7 +32,7 @@
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
-            padding-right: 24px;
+            width: 100%;
         }
 
         .filter-btn {
@@ -160,7 +167,7 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <p style="padding-right: 24px; color: #666; font-size: 14px;">Nenhum imóvel disponível nesta categoria no momento.</p>
+                <p style="color: #666; font-size: 14px; text-align: center; margin: 15px 0;">Nenhum imóvel disponível nesta categoria no momento.</p>
             {% endif %}
             </div>
 
@@ -211,7 +218,7 @@
                     {% endfor %}
                 </div>
             {% else %}
-                <p style="padding-right: 24px; color: #666; font-size: 14px;">Nenhum imóvel disponível nesta categoria no momento.</p>
+                <p style="color: #666; font-size: 14px; text-align: center; margin: 15px 0;">Nenhum imóvel disponível nesta categoria no momento.</p>
             {% endif %}
             </div>
         </main>
@@ -332,7 +339,8 @@
 
             var dots = dotsContainer.querySelectorAll('.dot');
             scrollContainer.addEventListener('scroll', function () {
-                var pageWidth = scrollContainer.clientWidth;
+                var firstPage = scrollContainer.querySelector('.property-page');
+                var pageWidth = firstPage ? firstPage.offsetWidth + 16 : scrollContainer.clientWidth;
                 var scrollPosition = scrollContainer.scrollLeft;
                 var activeIndex = Math.round(scrollPosition / pageWidth);
                 dots.forEach(function (dot, index) {
@@ -389,6 +397,15 @@
                         adminTapCount = 0;
                     }, 700);
                 }
+            });
+        }
+
+        // REGISTRO DO SERVICE WORKER (PWA NO ANDROID/IOS)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function () {
+                navigator.serviceWorker.register('/sw.js').catch(function (err) {
+                    console.log('SW registration error:', err);
+                });
             });
         }
     </script>
